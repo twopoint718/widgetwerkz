@@ -65,12 +65,6 @@ begin
 end
 $$ language plpgsql;
 
--- Ensure password is encrypted prior to being stored
-create trigger encrypt_pass
-    before insert or update on basic_auth.users
-    for each row
-    execute procedure basic_auth.encrypt_pass();
-
 -- Check encrypted password, returns role if password OK
 create or replace function
 auth.user_role(email text, pass text) returns name
@@ -87,13 +81,76 @@ $$;
 
 
 --------------------------------------------------------------------------------
+-- USER SIGNUP
+
+-- Users can sign themselves up via the signup procedure. They set their email
+-- and password and then they get a challenge token to verify their email. If
+-- they call the verify procedure with a matching challenge token then they're
+-- added to the users table
+create table auth.signup (
+  email       text        not null  check ( email ~* '^.+@.+\..+$' ),
+  pass        text        not null  check (length(pass) < 512),
+  role        name        not null  check (length(role) < 512),
+  challenge   varchar(12) not null,
+  expires_at  timestamptz not null  default (now() + '1 day'::interval),
+  primary key (email, challenge)
+);
+
+create or replace function
+public.signup(email text, password text) returns void as $$
+declare
+  challenge_str text;
+  notify_payload text;
+  encrypted_password text;
+begin
+  if ((email is not null) and (password is not null)) then
+    select array_to_string(array_agg(chr(65+round(random()*25)::integer)), '')
+      into challenge_str from generate_series(1,12);
+    insert into auth.signup (email, pass, role, challenge)
+      values (email, password, 'worker', challenge_str);
+    notify_payload = json_build_object('email', email, 'challenge', challenge_str);
+    perform pg_notify('signups', notify_payload);
+  end if;
+end;
+$$ security definer language plpgsql;
+
+-- Ensure password is encrypted prior to being stored
+create trigger encrypt_signup_pass
+    before insert or update on auth.signup
+    for each row
+    execute procedure auth.encrypt_pass();
+
+
+--------------------------------------------------------------------------------
+-- USER VERIFY
+
+-- A user is sent an email out-of-band. If they produce the correct challenge
+-- token to the verify prodecdure, then their record is moved into the
+-- auth.users table.
+create or replace function
+public.verify(email text, challenge text) returns void as $$
+declare
+  pending_signup record;
+begin
+  insert into auth.users (email, pass, role)
+    (select s.email, s.pass, s.role from auth.signup s
+      where s.email = email and s.challenge = challenge
+  );
+  delete from auth.signup
+    where auth.signup.email = email and auth.signup.challenge = challenge;
+end
+$$ security definer language plpgsql;
+
+
+
+--------------------------------------------------------------------------------
 -- USER LOGIN
 
 -- login should be on exposed schema (public). This procedure returns a JWT
 -- after the user successfully authenticates using email + password. Subsequent
 -- API requests use the returned JWT.
 create or replace function
-login(email text, pass text) returns basic_auth.jwt_token as $$
+public.login(email text, pass text) returns auth.jwt_token as $$
 declare
   _role name;
   result auth.jwt_token;
