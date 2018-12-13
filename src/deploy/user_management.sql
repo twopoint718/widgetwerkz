@@ -128,16 +128,13 @@ create trigger encrypt_signup_pass
 -- token to the verify prodecdure, then their record is moved into the
 -- auth.users table.
 create or replace function
-public.verify(challenge text) returns void as $$
-declare
-  pending_signup record;
+public.verify(input_challenge text) returns void as $$
 begin
+  delete from auth.signup where auth.signup.expires_at < now();
   insert into auth.users (email, pass, role)
     (select s.email, s.pass, s.role from auth.signup s
-      where s.challenge = challenge
-  );
-  delete from auth.signup
-    where auth.signup.challenge = challenge;
+      where s.challenge = input_challenge);
+  delete from auth.signup where auth.signup.challenge = input_challenge;
 end
 $$ security definer language plpgsql;
 
