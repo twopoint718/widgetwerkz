@@ -2,6 +2,10 @@
 #
 # The new-user signup and verification flow
 #
+
+
+################################################################################
+# CREATE A NEW USER
 POST http://widgetwerkz.development/rpc/signup
 
 {
@@ -9,5 +13,17 @@ POST http://widgetwerkz.development/rpc/signup
   "password": "my_password"
 }
 
-# Click the link in the email...
-GET http://widgetwerkz.development/confirm_email?challenge=WNYSOQNSVDKM&email=cwilson@8thlight.com
+
+################################################################################
+# CONFIRM EMAIL ADDRESS
+GET http://widgetwerkz.development/confirm_email?challenge=LSXGMRUQMEBO
+
+
+################################################################################
+# LOGIN
+POST http://widgetwerkz.development/rpc/login
+
+{
+  "email": "cwilson@8thlight.com",
+  "password": "my_password"
+}
