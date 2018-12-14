@@ -11,6 +11,30 @@ create extension if not exists pgjwt;    -- generate JWT tokens
 
 
 --------------------------------------------------------------------------------
+-- CONFIG
+
+create table auth.settings (
+  key text primary key,
+  value text not null
+);
+
+create or replace function auth.get(text) returns text as $$
+  select value from auth.settings where key = $1
+$$ security definer stable language sql;
+
+create or replace function auth.set(text, text) returns void as $$
+  insert into auth.settings (key, value)
+  values ($1, $2) on conflict (key) do update
+  set value = $2;
+$$ security definer language sql;
+
+-- read JWT secret from config file and store it in the settings table
+\set tmp_secret `cat ./secret.txt`
+\set jwt_secret '\'' :tmp_secret '\''
+select auth.set('jwt_secret', :jwt_secret);
+
+
+--------------------------------------------------------------------------------
 -- TYPES
 
 create type auth.jwt_token as (
