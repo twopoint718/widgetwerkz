@@ -51,7 +51,7 @@ create type auth.jwt_token as (
 create table if not exists
 auth.users (
     email    text primary key check ( email ~* '^.+@.+\..+$' ),
-    pass     text not null check (length(pass) < 512),
+    password text not null check (length(password) < 512),
     role     name not null check (length(role) < 512)
 );
 
@@ -80,10 +80,10 @@ create constraint trigger ensure_user_role_exists
 
 -- Salt and blowfish hash a new or changed user password
 create or replace function
-auth.encrypt_pass() returns trigger as $$
+auth.encrypt_password() returns trigger as $$
 begin
-    if tg_op = 'INSERT' or new.pass <> old.pass then
-        new.pass = crypt(new.pass, gen_salt('bf'));
+    if tg_op = 'INSERT' or new._password <> old._password then
+        new._password = crypt(new._password, gen_salt('bf'));
     end if;
     return new;
 end
@@ -111,17 +111,16 @@ $$;
 -- and password and then they get a challenge token to verify their email. If
 -- they call the verify procedure with a matching challenge token then they're
 -- added to the users table
-create table auth.signup (
-  email       text        not null  check ( email ~* '^.+@.+\..+$' ),
-  pass        text        not null  check (length(pass) < 512),
-  role        name        not null  check (length(role) < 512),
-  challenge   varchar(12) not null,
-  expires_at  timestamptz not null  default (now() + '1 day'::interval),
-  primary key (email, challenge)
+create table auth.signups (
+  _email     text        primary key check ( _email ~* '^.+@.+\..+$' ),
+  _password  text        not null    check (length(_password) < 512),
+  role       name        not null    check (length(role) < 512),
+  challenge  varchar(12) not null,
+  expires_at timestamptz not null    default (now() + '1 day'::interval)
 );
 
 create or replace function
-public.signup(email text, password text) returns void as $$
+public.signup(email text, password text) returns json as $$
 declare
   challenge_str text;
   notify_payload text;
@@ -130,19 +129,22 @@ begin
   if ((email is not null) and (password is not null)) then
     select array_to_string(array_agg(chr(65+round(random()*25)::integer)), '')
       into challenge_str from generate_series(1,12);
-    insert into auth.signup (email, pass, role, challenge)
-      values (email, password, 'worker', challenge_str);
+    insert into auth.signups (_email, _password, role, challenge)
+      values (email, password, 'worker', challenge_str)
+      on conflict (_email) do update
+      set (challenge, expires_at) = (challenge_str, now() + '1 day'::interval);
     notify_payload = json_build_object('email', email, 'challenge', challenge_str);
     perform pg_notify('signups', notify_payload);
   end if;
+  return (select json_build_object('msg', 'ok'));
 end;
 $$ security definer language plpgsql;
 
 -- Ensure password is encrypted prior to being stored
 create trigger encrypt_signup_pass
-    before insert or update on auth.signup
+    before insert or update on auth.signups
     for each row
-    execute procedure auth.encrypt_pass();
+    execute procedure auth.encrypt_password();
 
 
 --------------------------------------------------------------------------------
@@ -154,11 +156,11 @@ create trigger encrypt_signup_pass
 create or replace function
 public.verify(input_challenge text) returns void as $$
 begin
-  delete from auth.signup where auth.signup.expires_at < now();
+  delete from auth.signups where auth.signup.expires_at < now();
   insert into auth.users (email, pass, role)
-    (select s.email, s.pass, s.role from auth.signup s
+    (select s.email, s.pass, s.role from auth.signups s
       where s.challenge = input_challenge);
-  delete from auth.signup where auth.signup.challenge = input_challenge;
+  delete from auth.signups where auth.signups.challenge = input_challenge;
 end
 $$ security definer language plpgsql;
 
@@ -182,7 +184,7 @@ begin
     raise invalid_password using message = 'invalid user or password';
   end if;
 
-  select sign(row_to_json(r), current_setting('app.jwt_secret')) as token
+  select sign(row_to_json(r), auth.get('jwt_secret')) as token
   from (
     select
       _role as role,
@@ -192,6 +194,6 @@ begin
   into result;
   return result;
 end;
-$$ language plpgsql;
+$$ security definer language plpgsql;
 
 COMMIT;
