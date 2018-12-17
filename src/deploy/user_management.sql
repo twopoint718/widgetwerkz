@@ -98,7 +98,7 @@ begin
   return (
     select role from auth.users
     where users.email = user_role.email
-    and users.pass = crypt(user_role.pass, users.pass)
+    and users.password = crypt(user_role.pass, users.password)
   );
 end;
 $$;
@@ -156,9 +156,9 @@ create trigger encrypt_signup_pass
 create or replace function
 public.verify(input_challenge text) returns void as $$
 begin
-  delete from auth.signups where auth.signup.expires_at < now();
-  insert into auth.users (email, pass, role)
-    (select s.email, s.pass, s.role from auth.signups s
+  delete from auth.signups where auth.signups.expires_at < now();
+  insert into auth.users (email, password, role)
+    (select s._email, s._password, s.role from auth.signups s
       where s.challenge = input_challenge);
   delete from auth.signups where auth.signups.challenge = input_challenge;
 end
