@@ -1,0 +1,28 @@
+{
+  "name": "widgetwerkz",
+  "version": "1.0.0",
+  "description": "JS app to host swagger docs",
+  "main": "docs/api.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {
+    "express": "^4.16.4",
+    "swagger-ui-express": "^4.0.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node docs/api.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twopoint718/widgetwerkz.git"
+  },
+  "author": "Chris Wilson <cwilson@8thlight.com>",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/twopoint718/widgetwerkz/issues"
+  },
+  "homepage": "https://github.com/twopoint718/widgetwerkz#readme"
+}

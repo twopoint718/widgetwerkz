@@ -20,3 +20,9 @@ Deploying changes to db:pg:widgetwerkz
   + user_management .. ok
   + api_schema ....... ok
 ```
+
+## Supporting
+
+```
+sudo brew services restart denji/nginx/nginx-full && date
+```

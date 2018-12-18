@@ -2,10 +2,11 @@
 
 BEGIN;
 
+-- Public functions
+drop function if exists public.signup(text, text);
+drop function if exists public.verify(text);
+drop function if exists public.login(text, text);
+
 drop schema if exists auth cascade;
-drop function if exists signup;
-drop function if exists verify(text);
-drop extension if exists pgjwt;
-drop extension if exists pgcrypto;
 
 COMMIT;

@@ -4,3 +4,4 @@
 
 user_management 2018-12-11T21:07:12Z Chris Wilson <cwilson@8thlight.com> # Add framework for managing users in DB
 api_schema [user_management] 2018-12-11T22:47:49Z Chris Wilson <cwilson@8thlight.com> # Create API, roles, and permissions
+seed_db [api_schema] 2018-12-17T16:51:44Z Chris Wilson <cwilson@8thlight.com> # Seed DB with example items

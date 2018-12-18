@@ -56,9 +56,16 @@ grant usage on schema public to worker;
 grant select on all tables in schema public to worker;
 grant select on all sequences in schema public to worker;
 
--- allow 'all' access to public.part, but update/delete only when city = 'London'
+-- allow 'all' access to london parts
 create policy worker_london_parts_access on public.part
   for all to worker
+  using (city = 'London')
   with check (city = 'London');
+
+-- allow 'all' access to public.part for managers
+create policy manager_part_access on public.part
+  for all to manager
+  using (true)
+  with check (true);
 
 COMMIT;

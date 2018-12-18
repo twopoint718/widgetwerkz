@@ -6,8 +6,8 @@ BEGIN;
 -- SCHEMA/EXTENSIONS
 
 create schema if not exists auth;
-create extension if not exists pgcrypto; -- password hashing
-create extension if not exists pgjwt;    -- generate JWT tokens
+create extension if not exists pgcrypto schema auth; -- password hashing
+create extension if not exists pgjwt schema auth;    -- generate JWT tokens
 
 
 --------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ create or replace function
 auth.encrypt_password() returns trigger as $$
 begin
     if tg_op = 'INSERT' or new._password <> old._password then
-        new._password = crypt(new._password, gen_salt('bf'));
+        new._password = auth.crypt(new._password, auth.gen_salt('bf'));
     end if;
     return new;
 end
@@ -98,7 +98,7 @@ begin
   return (
     select role from auth.users
     where users.email = user_role.email
-    and users.password = crypt(user_role.pass, users.password)
+    and users.password = auth.crypt(user_role.pass, users.password)
   );
 end;
 $$;
@@ -154,13 +154,14 @@ create trigger encrypt_signup_pass
 -- token to the verify prodecdure, then their record is moved into the
 -- auth.users table.
 create or replace function
-public.verify(input_challenge text) returns void as $$
+public.verify(input_challenge text) returns json as $$
 begin
   delete from auth.signups where auth.signups.expires_at < now();
   insert into auth.users (email, password, role)
     (select s._email, s._password, s.role from auth.signups s
       where s.challenge = input_challenge);
   delete from auth.signups where auth.signups.challenge = input_challenge;
+  return (select json_build_object('msg', 'ok'));
 end
 $$ security definer language plpgsql;
 
@@ -184,12 +185,12 @@ begin
     raise invalid_password using message = 'invalid user or password';
   end if;
 
-  select sign(row_to_json(r), auth.get('jwt_secret')) as token
+  select auth.sign(row_to_json(r), auth.get('jwt_secret')) as token
   from (
     select
       _role as role,
       login.email as email,
-      extract(epoch from now())::integer + 60*60 as exp
+      extract(epoch from now() + '4 hours'::interval)::integer as exp
   ) r
   into result;
   return result;
