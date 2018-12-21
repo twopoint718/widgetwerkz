@@ -24,6 +24,4 @@ Deploying changes to db:pg:widgetwerkz
 
 ## Supporting
 
-```
-sudo brew services restart denji/nginx/nginx-full && date
-```
+TODO: better docs!
