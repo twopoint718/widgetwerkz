@@ -19,6 +19,7 @@ You should see
 Deploying changes to db:pg:widgetwerkz
   + user_management .. ok
   + api_schema ....... ok
+  + seed_db .......... ok
 ```
 
 ## Supporting
